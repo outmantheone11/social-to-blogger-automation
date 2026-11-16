@@ -35,4 +35,5 @@ jobs:
           WHATSAPP_TO_NUMBER: ${{ secrets.WHATSAPP_TO_NUMBER }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GOOGLE_SHEET_TAB: ${{ vars.GOOGLE_SHEET_TAB }}
         run: python generate_proposals.py
