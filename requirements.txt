@@ -1,0 +1,19 @@
+requests>=2.31,<3
+google-api-python-client>=2.120,<3
+google-auth>=2.28,<3
+google-auth-oauthlib>=1.2,<2
+
+# Optional feature: rewrite captions in a blog style (used only if
+# ANTHROPIC_API_KEY is set — see README)
+anthropic>=0.40,<1
+
+# Optional feature: generate the promo video (used only if
+# GENERATE_PROMO_VIDEO=true — see README)
+moviepy>=1.0.3,<2
+Pillow>=10.0,<11
+numpy>=1.26,<3
+
+# Required by generate_proposals.py (part 2: WhatsApp lead collection +
+# draft commercial proposals — see README "الجزء الثاني")
+gspread>=6.1,<7
+python-docx>=1.1,<2

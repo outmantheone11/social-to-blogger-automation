@@ -1,0 +1,62 @@
+name: Auto Publish Social Posts to Blogger
+
+on:
+  schedule:
+    # كل 6 ساعات — عدّل الجدولة حسب حاجتك (صيغة cron بتوقيت UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}   # يسمح بتشغيل يدوي من تبويب Actions عند الحاجة
+
+permissions:
+  contents: write   # ضروري لتحديث ملف الحالة، ولرفع الفيديو كـ Release asset
+
+concurrency:
+  group: auto-publish
+  cancel-in-progress: false   # لا نلغي تشغيلاً جارياً لتفادي نشر مزدوج
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies (ffmpeg for video generation)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run auto-publish script
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TIKTOK_OPEN_ID: ${{ secrets.TIKTOK_OPEN_ID }}
+          TIKTOK_PRIVACY_LEVEL: ${{ secrets.TIKTOK_PRIVACY_LEVEL }}
+          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_TO_NUMBER: ${{ secrets.WHATSAPP_TO_NUMBER }}
+          GENERATE_PROMO_VIDEO: ${{ vars.GENERATE_PROMO_VIDEO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python auto_publish.py
+
+      - name: Commit updated state file (dedup tracking)
+        run: |
+          git config user.name "auto-publish-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state/published_ids.json
+          git diff --staged --quiet || git commit -m "chore: update published posts state [skip ci]"
+          git push
