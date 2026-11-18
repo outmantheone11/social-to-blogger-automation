@@ -27,6 +27,13 @@ Optional:
   MAX_ITEMS_PER_SOURCE  default 5
   STATE_FILE            default "state/published_ids.json"
 
+  # Feature: auto-insert new Facebook listings into the "عروض مختارة"
+  # section of the landing page (see listings_update.py). Requires
+  # ANTHROPIC_API_KEY too (used to classify/extract the listing fields).
+  # Leave BLOGGER_PAGE_ID unset to skip this feature entirely.
+  BLOGGER_PAGE_ID       the numeric Page ID of the landing page (NOT the
+                        blog ID) — find it via pages().list(blogId=...)
+
   # Feature: Claude-powered rewrite into a polished blog-post style.
   # Leave ANTHROPIC_API_KEY unset to skip this step (original text is used as-is).
   ANTHROPIC_API_KEY
@@ -57,6 +64,8 @@ import requests
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from googleapiclient.discovery import build
+
+import listings_update
 
 MAX_ITEMS_PER_SOURCE = int(os.environ.get("MAX_ITEMS_PER_SOURCE", "5"))
 STATE_FILE = pathlib.Path(os.environ.get("STATE_FILE", "state/published_ids.json"))
@@ -291,6 +300,95 @@ def send_whatsapp_notification(title, url):
 
 
 # --------------------------------------------------------------------------
+# Feature: classify a Facebook post as a real-estate / land listing and
+# extract structured fields for the "عروض مختارة" section of the landing
+# page (see listings_update.py for the exact schema it expects).
+# Fully optional — skipped silently if ANTHROPIC_API_KEY or BLOGGER_PAGE_ID
+# is not set, or if Claude decides the post is not a property listing.
+# --------------------------------------------------------------------------
+LISTING_SYSTEM_PROMPT = """أنت مساعد يحلل منشورات فيسبوك لمكتب وساطة عقارية مغربي، لتحديد
+هل المنشور يُعلن عن عقار سكني (شقة/منزل/فيلا/هنغار) أو أرض (سكنية/تجارية/فلاحية/استثمارية)
+معروضة للبيع، واستخراج بياناته إن كان كذلك.
+
+أجب حصراً بكائن JSON واحد، بدون أي نص آخر قبله أو بعده.
+
+إن لم يكن المنشور إعلاناً عن عقار أو أرض للبيع (مثلاً: منشور عام، سؤال، خبر، تهنئة...)، أجب فقط:
+{"is_listing": false}
+
+إن كان إعلاناً عقارياً، استخرج:
+{
+  "is_listing": true,
+  "category": "residential" أو "land" فقط،
+  "media": "res" للسكني، أو "land" للأرض العادية، أو "coast" للأرض ذات الواجهة البحرية فقط،
+  "badge": "نص قصير جداً بصيغة 'للبيع · نوع العقار'، مثال: 'للبيع · شقة فاخرة'",
+  "title": "عنوان جذاب قصير يصف العقار وموقعه العام",
+  "location": "المدينة أو الحي كما ورد في المنشور",
+  "area": "المساحة كما وردت، مع وحدتها (مثال: '220 متر مربع' أو '2 هكتار')، أو 'غير محدد' إن لم تذكر",
+  "price": "السعر كما ورد، أو 'ثمن قابل للتفاوض' إن لم يُذكر رقم",
+  "wa": "جملة عربية قصيرة لبدء محادثة واتساب عن هذا العقار تحديداً، مثال: 'تفاصيل الشقة الفاخرة بحي جليز'"
+}
+
+لا تخترع معلومات غير موجودة في النص. استخدم فقط ما ورد فعلاً في المنشور."""
+
+
+def classify_listing_with_claude(raw_text):
+    """Returns a dict matching listings_update's expected schema, or None
+    if this post is not a property listing / the feature isn't configured /
+    classification failed for any reason. Never raises."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    page_id = os.environ.get("BLOGGER_PAGE_ID")
+    if not api_key or not page_id or not raw_text.strip():
+        return None
+
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=api_key)
+        model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+        response = client.messages.create(
+            model=model,
+            max_tokens=500,
+            system=LISTING_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": raw_text}],
+        )
+        reply_text = "".join(
+            block.text for block in response.content if getattr(block, "type", "") == "text"
+        ).strip()
+        data = json.loads(reply_text)
+        if not data.get("is_listing"):
+            return None
+        return data
+    except Exception as exc:  # noqa: BLE001
+        print(f"[listing-classify] فشل تحليل المنشور كعقار، سيُتجاهل — {exc}")
+        return None
+
+
+def maybe_update_listings_page(service, raw_text, item):
+    """If configured and the post is a property listing, insert it into the
+    LISTINGS array on the landing page. Never raises — logs and continues."""
+    blog_id = os.environ.get("BLOGGER_BLOG_ID")
+    page_id = os.environ.get("BLOGGER_PAGE_ID")
+    if not blog_id or not page_id:
+        return  # feature not configured, skip silently
+
+    listing = classify_listing_with_claude(raw_text)
+    if not listing:
+        return
+
+    if item.get("image_url"):
+        listing["image_url"] = item["image_url"]
+
+    try:
+        inserted = listings_update.insert_listing(service, blog_id, page_id, listing)
+        if inserted:
+            print(f"[listings] أُضيف عرض جديد إلى صفحة العقارات: {listing['title']}")
+        else:
+            print("[listings] العرض موجود مسبقاً في الصفحة، تم تجاهله.")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[listings] فشل تحديث صفحة العقارات — {exc}")
+
+
+# --------------------------------------------------------------------------
 # Blogger publishing
 # --------------------------------------------------------------------------
 def get_blogger_service():
@@ -376,6 +474,10 @@ def main():
     published_count = 0
     for item in sorted(new_items, key=lambda i: i.get("published_at") or ""):
         try:
+            raw_text = html.unescape(
+                item.get("body_html", "").replace("<p>", "").replace("</p>", "\n")
+            ).strip()
+
             item = rewrite_item_with_claude(item)
             url = publish_item(service, blog_id, item)
             print(f"[ok] نُشر: {item['title']}  ->  {url}")
@@ -383,6 +485,9 @@ def main():
             published_count += 1
 
             send_whatsapp_notification(item["title"], url)
+
+            if item["source"] == "facebook":
+                maybe_update_listings_page(service, raw_text, item)
 
             if generate_video and item.get("image_url"):
                 try:
