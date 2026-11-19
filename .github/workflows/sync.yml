@@ -1,0 +1,53 @@
+name: sync-to-blogger
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+      FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      YT_API_KEY: ${{ secrets.YT_API_KEY }}
+      YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+      BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+      BLOGGER_DRAFT: "0"
+      MEDIA_BASE_URL: https://cdn.jsdelivr.net/gh/${{ github.repository }}@main/media
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch new items and download media
+        run: python sync.py fetch
+
+      # Images must be live on the CDN before Blogger posts reference them
+      - name: Commit media
+        run: |
+          git config user.name "sync-bot"
+          git config user.email "sync-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "stage media" && git push)
+
+      - name: Wait for CDN
+        run: sleep 20
+
+      - name: Publish to Blogger
+        run: python sync.py publish
+
+      - name: Commit state
+        run: |
+          git add -A
+          git diff --cached --quiet || (git commit -m "update state" && git push)

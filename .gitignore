@@ -1,0 +1,5 @@
+page_backup_*.html
+state/pending_listings.json
+__pycache__/
+.env
+.env
