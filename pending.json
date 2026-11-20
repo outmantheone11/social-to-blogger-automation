@@ -1,1 +1,58 @@
-[]
+[
+  {
+    "uid": "fb:1756027671352125_1591458606344755",
+    "source": "Facebook",
+    "title": "",
+    "text": "🚨للبيع ارض فلاحية عارية ملكية عدلية فيها 5 هكتار و4000 متر فمنطقة تالسينت على الطريق الرئيسي ديال أنوال المكان أسمو تيغزراتين الثمن 40 مليون\nاللهم يسر",
+    "date": "2026-11-17T11:26:37+0000",
+    "link": "https://www.facebook.com/1592733402883942/posts/1591458606344755",
+    "images": [
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/ea3c47ed6b08e2ce.jpg",
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/2c7d891c0f7c8bea.jpg",
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/d1b96acac69f404d.jpg",
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/685a4fe93342f70f.jpg"
+    ],
+    "embeds": []
+  },
+  {
+    "uid": "fb:1756027671352125_1591600922997190",
+    "source": "Facebook",
+    "title": "",
+    "text": "",
+    "date": "2026-11-17T14:12:24+0000",
+    "link": "https://www.facebook.com/1592733402883942/posts/1591600922997190",
+    "images": [
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/11cc7041aa427927.jpg"
+    ],
+    "embeds": []
+  },
+  {
+    "uid": "fb:1756027671352125_1591463916344224",
+    "source": "Facebook",
+    "title": "",
+    "text": "🚨ارض للبيع فموقع شوكة على الطريق مساحتها 425 متر جات حدى سطاسيون بونقاريش",
+    "date": "2026-11-17T16:32:49+0000",
+    "link": "https://www.facebook.com/1592733402883942/posts/1591463916344224",
+    "images": [
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/ad41b305ab9606b0.jpg",
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/534e88b8942d7bf8.jpg",
+      "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/media/51146293e3206fea.jpg"
+    ],
+    "embeds": []
+  },
+  {
+    "uid": "fb:1756027671352125_1591972256293390",
+    "source": "Facebook",
+    "title": "",
+    "text": "",
+    "date": "2026-11-17T22:12:40+0000",
+    "link": "https://www.facebook.com/1592733402883942/posts/1591972256293390",
+    "images": [],
+    "embeds": [
+      [
+        "https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F3632229670281558%2F&show_text=false&width=560",
+        315
+      ]
+    ]
+  }
+]
