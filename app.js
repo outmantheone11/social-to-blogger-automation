@@ -9,7 +9,7 @@ var CONFIG = {
   defaultMessage: "مرحباً، أرغب في الاستفسار عن العروض العقارية",
   bloggerFeed: "/feeds/posts/default",
   listingsUrls: [],
-  mediaBase: "https://raw.githubusercontent.com/USERNAME/REPO/main/"
+  mediaBase: "https://cdn.jsdelivr.net/gh/outmantheone11/social-to-blogger-automation@main/"
 };
 
 var LISTINGS = [
@@ -17,24 +17,21 @@ var LISTINGS = [
  {category:"land",badge:"للبيع · أرض استثمارية",media:"land",title:"فرصة استثمارية استراتيجية بدار بوعزة على الطريق الرئيسية",location:"دار بوعزة، أولاد عزوز",area:"4.8 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل الأرض الاستثمارية دار بوعزة"},
  {category:"land",badge:"للبيع · أرض محفظة",media:"land",title:"أرض محفظة مرخصة صالحة للبناء بدوار أمالوا",location:"جماعة الدراركة، أكادير",area:"2,086 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة الدراركة"},
  {category:"land",badge:"للبيع · أرض سياحية",media:"coast",title:"قطعة أرضية استثنائية بواجهة بحرية مباشرة بآكلو",location:"آكلو، إقليم تيزنيت",area:"17 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة تزنيت آكلو"},
- {category:"residential",badge:"للبيع · شقة فاخرة",media:"res",title:"شقة فاخرة للبيع بحي ابن تاشفين، قرب مرجان",location:"الدار البيضاء",area:"117 م² · 3 غرف + صالونين",price:"مراب سيارة مشمول",wa:"تفاصيل الشقة الفاخرة ابن تاشفين"},
+ {category:"residential",badge:"للبيع · شقة فاخرة · مرآب مشمول",media:"res",title:"شقة فاخرة للبيع بحي ابن تاشفين، قرب مرجان",location:"الدار البيضاء",area:"117 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل الشقة الفاخرة ابن تاشفين"},
  {category:"residential",badge:"للبيع · عقار محفظ",media:"res",title:"عقار محفظ بحي مستقبل، طريق رأس الماء بنسودة",location:"فاس",area:"92 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل عقار بنسودة فاس"},
  {category:"residential",badge:"للبيع · منزل بحي راقٍ",media:"res",title:"منزل محفظ بحي راقٍ وهادئ ببني ملال",location:"بني ملال",area:"220 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل منزل محفظ بني ملال"},
- {category:"residential",badge:"للبيع · شقة",media:"res",title:"شقة للبيع في مراكش - حي جليز",location:"مراكش - حي جليز",area:"95 متر مربع",price:"1,250,000 درهم",wa:"السلام عليكم، أود الحصول على تفاصيل الشقة المعروضة للبيع في حي جليز بمراكش."},
- {category:"residential",badge:"للبيع · فيلا",media:"res",title:"فيلا فاخرة للبيع في مراكش - النخيل",location:"مراكش - النخيل",area:"400 متر مربع",price:"4,500,000 درهم",wa:"مرحباً، أرغب في الحصول على تفاصيل الفيلا المعروضة للبيع في مراكش - النخيل."},
+ {category:"residential",badge:"للبيع · شقة",media:"res",title:"شقة للبيع في مراكش - حي جليز",location:"مراكش - حي جليز",area:"95 م²",price:"1,250,000 درهم",wa:"السلام عليكم، أود الحصول على تفاصيل الشقة المعروضة للبيع في حي جليز بمراكش."},
+ {category:"residential",badge:"للبيع · فيلا",media:"res",title:"فيلا فاخرة للبيع في مراكش - النخيل",location:"مراكش - النخيل",area:"400 م²",price:"4,500,000 درهم",wa:"مرحباً، أرغب في الحصول على تفاصيل الفيلا المعروضة للبيع في مراكش - النخيل."},
  {category:"residential",badge:"للبيع · هنغار جديد",media:"res",title:"هنغار جديد مع 8 شقق للبيع في مراكش - طريق اسفي",location:"مراكش - طريق آسفي",area:"2200 متر مربع",price:"1.4 مليار سنتيم",video_url:"https://www.youtube.com/shorts/FSSMCZnt64w",wa:"مرحباً، أرغب في الحصول على تفاصيل الهنغار الجديد مع 8 شقق بطريق آسفي - مراكش"}
 ];
 
-var TESTIMONIALS = [
- {initial:"ع",name:"عبد الرحمن. م",role:"مستثمر عقاري — الدار البيضاء",text:"احترافية عالية في التعامل والالتزام بالوقت. تم تثمين أرضي بدار بوعزة وبيعها في ظرف قياسي وبسعر ممتاز."},
- {initial:"س",name:"سارة. ب",role:"مشترية — ابن تاشفين",text:"المرافقة القانونية الشفافة أعطتني راحة بال تامة خلال شراء الشقة. أنصح بالتعامل مع المنصة لكل من يبحث عن الأمان."},
- {initial:"م",name:"محمد. ك",role:"مالك مشروع تجاري",text:"فريق عمل متجاوب يتميز بالسرعة والدقة في المعاينة وتقديم الاستشارات الاستثمارية الناجحة."}
-];
+var TESTIMONIALS = [];
+if(!TESTIMONIALS.length){ var _ts = document.getElementById("testimonials"); if(_ts) _ts.hidden = true; }
 
 var FAQS = [
  {q:"كيف يتم تقييم وتثمين العقارات الخاصة بي؟",a:"يقوم فريقنا المختص بدراسة القيمة السوقية الحقيقية بناءً على موقع العقار والمساحة والأسعار الأخيرة للمعاملات المنجزة في نفس المنطقة، مع معاينة ميدانية لضمان أفضل سعر."},
  {q:"ما هي نسبة العمولات والرسوم المعتمدة في المنصة؟",a:"نعتمد الشفافية التامة؛ يُتفق على نسبة الوساطة مسبقاً وفق الأعراف العقارية المعمول بها في المغرب، وتُؤدى فقط بعد إتمام عملية البيع وتوقيع العقود."},
- {q:"هل تضمنون الأمان والشرعية القانونية للعقارات المعروضة؟",a:"نعم بالكامل، لا نعرض سوى العقارات المحفظة أو السليمة قانونياً، ونرافق المشترين والمالكين عبر موثقين معتمدين للحفاظ على حقوق جميع الأطراف."}
+ {q:"هل تضمنون الأمان والشرعية القانونية للعقارات المعروضة؟",a:"نحرص على عرض عقارات محفظة أو سليمة قانونياً، ونرافق المشترين والمالكين عبر موثقين معتمدين لحماية حقوق الأطراف."}
 ];
 
 var ICONS = {
@@ -47,7 +44,7 @@ function $(id){ return document.getElementById(id); }
 function waLink(m){ return "https://wa.me/" + CONFIG.whatsappNumber + "?text=" + encodeURIComponent(m); }
 
 ["navWaBtn","heroWaBtn","fabWaBtn","footerWaLink"].forEach(function(id){ var e=$(id); if(e) e.href = waLink(CONFIG.defaultMessage); });
-["navFbBtn","footerFbLink"].forEach(function(id){ var e=$(id); if(e) e.href = CONFIG.facebookUrl; });
+["navFbBtn","footerFbLink","lfFbLink"].forEach(function(id){ var e=$(id); if(e) e.href = CONFIG.facebookUrl; });
 if($("fabCallBtn")) $("fabCallBtn").href = "tel:+" + CONFIG.whatsappNumber;
 
 var phoneReadable = "+212 " + CONFIG.whatsappNumber.slice(3, 6) + " " + CONFIG.whatsappNumber.slice(6);
