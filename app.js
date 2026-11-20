@@ -510,7 +510,8 @@ document.addEventListener("keydown", function(e){
 });
 
 /* النقر على أي بطاقة يفتح التفاصيل (ويمنع معرض الصور القديم) */
-grid.addEventListener("click", function(e){
+var _gridEl = document.getElementById("listingsGrid");
+if(_gridEl) _gridEl.addEventListener("click", function(e){
   var card = e.target.closest && e.target.closest(".card");
   if(!card) return;
   if(e.target.closest("a,button,iframe,video")) return;
