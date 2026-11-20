@@ -54,6 +54,7 @@ Optional:
 """
 
 import os
+import re
 import sys
 import json
 import html
@@ -434,6 +435,21 @@ def build_post_html(item):
     return "\n".join(parts)
 
 
+GENERIC_TITLE_RE = re.compile(r"^\s*منشور\s+(من|جديد\s+من)\s*\S*\s*$", re.I)
+
+def is_publishable(item):
+    """يرفض العناصر الفارغة أو ذات العنوان العام، لأنها تعني فشل الجلب."""
+    body = html.unescape(item.get("body_html", "") or "")
+    text = re.sub(r"<[^>]+>", " ", body).strip()
+    has_media = bool(item.get("image_url") or item.get("video_url") or item.get("media_urls"))
+    title = (item.get("title") or "").strip()
+    if GENERIC_TITLE_RE.match(title):
+        return False, "عنوان عام"
+    if len(text) < 30 and not has_media:
+        return False, "نص قصير بلا وسائط"
+    return True, ""
+
+
 def publish_item(service, blog_id, item):
     body = {
         "title": item["title"] or f"منشور جديد من {SOURCE_LABELS.get(item['source'], item['source'])}",
@@ -478,7 +494,19 @@ def main():
                 item.get("body_html", "").replace("<p>", "").replace("</p>", "\n")
             ).strip()
 
+            ok, why = is_publishable(item)
+            if not ok:
+                print(f"[skip] {item['source']}:{item['id']} — {why}")
+                if os.environ.get("SKIP_REMEMBER", "false").lower() == "true":
+                    state.setdefault(item["source"], []).append(item["id"])
+                continue
+
             item = rewrite_item_with_claude(item)
+            ok, why = is_publishable(item)
+            if not ok:
+                print(f"[skip] بعد إعادة الصياغة {item['source']}:{item['id']} — {why}")
+                continue
+
             url = publish_item(service, blog_id, item)
             print(f"[ok] نُشر: {item['title']}  ->  {url}")
             state.setdefault(item["source"], []).append(item["id"])
