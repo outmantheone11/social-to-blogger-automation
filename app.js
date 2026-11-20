@@ -81,6 +81,43 @@ if("IntersectionObserver" in window && statsSec){ new IntersectionObserver(funct
 else animateStats();
 
 var grid = document.getElementById("listingsGrid");
+(function(){
+  var st = document.createElement("style");
+  st.textContent = [
+    "#listingsGrid{align-items:stretch}",
+    ".card{height:100%;transition:transform .15s,box-shadow .15s}",
+    ".card:hover{transform:translateY(-3px);box-shadow:0 14px 30px -14px rgba(0,0,0,.35)}",
+    ".card-media.has-media{aspect-ratio:4/3;min-height:0}",
+    ".card-media img.cover[data-z]{cursor:zoom-in}",
+    ".card-body h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}",
+    ".card-ex{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}",
+    ".count-badge{position:absolute;bottom:10px;inset-inline-end:10px;z-index:5;background:rgba(10,15,12,.68);color:#fff;font-size:11px;padding:4px 9px;border-radius:999px}",
+    ".lb{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}",
+    ".lb img{max-width:94vw;max-height:84vh;object-fit:contain}",
+    ".lb button{position:absolute;background:rgba(255,255,255,.18);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer}"
+  ].join("");
+  document.head.appendChild(st);
+})();
+/* معرض الصور: النقر على صورة الغلاف */
+grid.addEventListener("click", function(e){
+  var im = e.target.closest("img.cover");
+  if(!im) return;
+  var box = im.closest(".card-media"), raw = box && box.getAttribute("data-gal");
+  if(!raw) return;
+  var g; try{ g = JSON.parse(raw); }catch(x){ return; }
+  var i = Math.max(0, g.indexOf(im.getAttribute("src")));
+  var lb = document.createElement("div");
+  lb.className = "lb"; lb.dir = "ltr";
+  lb.innerHTML = '<img alt=""><button data-d="-1" style="left:14px;top:50%">‹</button><button data-d="1" style="right:14px;top:50%">›</button><button data-d="0" style="right:14px;top:14px">×</button>';
+  function show(){ lb.querySelector("img").src = g[i]; }
+  lb.addEventListener("click", function(ev){
+    var d = ev.target.getAttribute ? ev.target.getAttribute("data-d") : null;
+    if(d === null){ if(ev.target === lb) lb.remove(); return; }
+    d = +d; if(d === 0){ lb.remove(); return; }
+    i = (i + d + g.length) % g.length; show();
+  });
+  document.body.appendChild(lb); show();
+});
 
 /* CSS صغير يُحقن تلقائياً */
 (function(){
@@ -115,6 +152,7 @@ function parseMedia(raw){
             thumb:"https://img.youtube.com/vi/" + m[1] + "/hqdefault.jpg"};
   if((m = u.match(/instagram\.com\/(?:[\w.]+\/)?(p|reel|reels|tv)\/([\w-]+)/)))
     return {k:"ig", src:"https://www.instagram.com/" + (m[1] === "reels" ? "reel" : m[1]) + "/" + m[2] + "/embed/"};
+  if(/facebook\.com\/plugins\//i.test(u)) return {k:"fb", src:u};   /* iframe جاهز من فيسبوك */
   if(/(^|\.)(facebook|fb)\.com\/|fb\.watch\//i.test(u) && !/\.(jpe?g|png|webp|gif)(\?|$)/i.test(u)){
     var isVid = /\/(videos|reel|reels|watch)\b|fb\.watch|[?&]v=/i.test(u);
     return {k:"fb", src:"https://www.facebook.com/plugins/" + (isVid ? "video" : "post") + ".php?show_text=false&href=" + encodeURIComponent(u)};
@@ -141,7 +179,7 @@ function norm(it){
     price: it.price || it.prix || "ثمن قابل للتفاوض",
     wa: it.wa || ("مرحباً، أرغب في تفاصيل: " + title),
     medias: medias,
-    link: it.post_link || "",
+    link: it.post_link || "", excerpt: it.excerpt || "", gal: medias.filter(function(m){ return m.k === "img"; }).map(function(m){ return m.src; }),
     off: it.hidden === true || it.active === false || it.sold === true
   };
 }
@@ -155,7 +193,7 @@ function cardHTML(it){
   if(!poster && player && player.thumb) poster = player.thumb;
 
   var inner = ICONS[it.icon] || "";
-  if(poster) inner += '<img src="' + esc(poster) + '" alt="' + esc(it.title) + '" loading="lazy" referrerpolicy="no-referrer" ' +
+  if(poster) inner += '<img class="cover" data-z="1" src="' + esc(poster) + '" alt="' + esc(it.title) + '" loading="lazy" referrerpolicy="no-referrer" ' +
     'onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2">';
   if(player){
     var bg = {yt:"#ff0000", ig:"linear-gradient(45deg,#f09433,#dc2743,#bc1888)", fb:"#1877f2", video:"#1f7a52"}[player.k];
@@ -167,15 +205,15 @@ function cardHTML(it){
   var has = (poster || player) ? " has-media" : "";
 
   return '<article class="card" data-cat="' + it.category + '">' +
-    '<div class="card-media is-' + it.icon + has + '">' +
-      '<span class="card-badge' + (it.icon === "coast" ? " gold" : "") + '" style="z-index:5">' + esc(it.badge) + '</span>' + inner +
+    '<div class="card-media is-' + it.icon + has + '"' + (it.gal.length ? ' data-gal="' + esc(JSON.stringify(it.gal)) + '"' : "") + '>' +
+      '<span class="card-badge' + (it.icon === "coast" ? " gold" : "") + '" style="z-index:5">' + esc(it.badge) + '</span>' + (it.gal.length > 1 ? '<span class="count-badge">' + it.gal.length + ' صور</span>' : "") + inner +
     '</div>' +
     '<div class="card-body"><h3>' + esc(it.title) + '</h3>' +
       '<div class="card-meta">' +
         '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(it.location) + '</span>' +
         (it.area ? '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>' + esc(it.area) + '</span>' : "") +
       '</div>' +
-      '<p class="card-price">' + esc(it.price) + '</p>' +
+      (it.excerpt ? '<p class="card-ex">' + esc(it.excerpt) + '</p>' : "") + '<p class="card-price">' + esc(it.price) + '</p>' +
       (it.link ? '<a class="btn btn-ghost btn-block" href="' + esc(it.link) + '">قراءة التفاصيل</a>' : '') +
       '<a class="btn btn-ghost btn-block wa-item" href="' + waLink(it.wa) + '" target="_blank" rel="noopener">طلب التفاصيل والمعاينة</a>' +
     '</div></article>';
@@ -240,7 +278,8 @@ function fromEntry(e){
   var link = ""; (e.link || []).forEach(function(l){ if(l.rel === "alternate") link = l.href; });
   var area = text.match(/(\d[\d.,]*)\s*(م²|م2|متر|هكتار)/); var loc = text.match(/(?:بمنطقة|منطقة|بحي|بمدينة|مدينة)\s+([\u0600-\u06FF]+)/) || title.match(/\s(?:في|ب)\s*([\u0600-\u06FF]+)\s*$/);
   var price = text.match(/(\d[\d.,\s]*)\s*(درهم|DH|MAD|مليون|سنتيم)/i);
-  return { title:title, category:labels + " " + title, images:imgs, social_url:embeds[0], video_url:embeds[1],
+  var p1 = doc.querySelector("p"), fbp = [].map.call(doc.querySelectorAll("a[href]"), function(n){ return n.getAttribute("href"); }).filter(function(u){ return /facebook\.com/.test(u); })[0];
+  return { title:title, category:labels + " " + title, images:imgs, social_url:embeds[0] || (imgs.length ? "" : fbp), video_url:embeds[1], excerpt: p1 ? p1.textContent.trim().slice(0, 160) : "",
            area: area ? area[1] + (area[2] === "هكتار" ? " هكتار" : " م²") : "", location: loc ? loc[1] : "", price: price ? price[0].trim() : "", post_link:link };
 }
 function loadBlogger(){
