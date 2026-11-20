@@ -71,6 +71,13 @@ R = [
 for a, b in R:
     h = h.replace(a, b)
 
+# 8b) حقن التصميم v2 داخل أول <style>
+THEME = open("template/theme.css", encoding="utf8").read()
+i = h.find("</style>")
+if i < 0:
+    raise SystemExit("لا يوجد <style> في الصفحة")
+h = h[:i] + "\n/* THEME v2 */\n" + THEME + "\n" + h[i:]
+
 # 9) التحقق قبل الكتابة
 checks = {
     "claude_meta": h.count("claude:"),

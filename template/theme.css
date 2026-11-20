@@ -1,0 +1,110 @@
+/* ===== THEME v2 ===== */
+:root{
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+  --shadow-1:0 1px 2px rgba(0,0,0,.06),0 10px 28px -14px rgba(15,61,51,.28);
+  --shadow-2:0 2px 6px rgba(0,0,0,.06),0 28px 56px -22px rgba(15,61,51,.38);
+  --glass:color-mix(in srgb,var(--bg) 72%,transparent);
+  --ring:0 0 0 4px color-mix(in srgb,var(--gold) 34%,transparent);
+}
+html{scroll-behavior:smooth;scroll-padding-top:84px;-webkit-text-size-adjust:100%}
+body{font-size:clamp(15px,.4vw + 14px,17px);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1{font-size:clamp(30px,4.6vw + 12px,64px);letter-spacing:-.02em}
+h2{letter-spacing:-.015em}
+section{padding-block:clamp(48px,8vw,96px)}
+
+/* ترويسة زجاجية */
+header.site{background:var(--glass);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px)}
+nav.links a{position:relative;padding-block:6px}
+nav.links a::after{content:"";position:absolute;inset-inline:0;bottom:-2px;height:2px;background:var(--gold);transform:scaleX(0);transform-origin:center;transition:transform .3s var(--ease-out)}
+nav.links a:hover::after{transform:scaleX(1)}
+
+/* البطل */
+.hero{isolation:isolate;background:
+  radial-gradient(60% 80% at 100% 0%,color-mix(in srgb,var(--gold) 26%,transparent),transparent 62%),
+  radial-gradient(55% 75% at 0% 100%,color-mix(in srgb,var(--primary-2) 75%,transparent),transparent 62%),
+  var(--primary)}
+.hero-inner{padding-block:clamp(56px,10vw,120px) clamp(44px,7vw,80px)}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--gold),#f2d68f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-trust span{transition:opacity .2s}
+.hero-trust span:hover{opacity:1}
+
+/* الأزرار */
+.btn{min-height:48px;transition:transform .2s var(--ease-out),box-shadow .25s,background .2s,border-color .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn-gold{box-shadow:0 12px 30px -12px rgba(217,168,94,.65)}
+.btn-gold:hover{box-shadow:0 16px 36px -12px rgba(217,168,94,.8)}
+.btn-primary:hover{box-shadow:0 14px 30px -10px rgba(31,122,82,.7)}
+
+/* الإحصائيات */
+.stats-grid{gap:0}
+.stat{padding:10px 6px}
+@media (min-width:640px){.stat+.stat{border-inline-start:1px solid var(--line)}}
+.stat b{font-size:clamp(26px,3.4vw + 8px,44px)}
+
+/* بطاقات المميزات */
+.feature-card{position:relative;overflow:hidden;transition:transform .35s var(--ease-out),box-shadow .35s,border-color .35s}
+.feature-card::after{content:"";position:absolute;width:180px;height:180px;inset-block-end:-70px;inset-inline-end:-70px;background:radial-gradient(circle,var(--gold-soft),transparent 70%);opacity:0;transition:opacity .4s}
+.feature-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-2);border-color:color-mix(in srgb,var(--gold) 50%,var(--line))}
+.feature-card:hover::after{opacity:1}
+
+/* الفلاتر والعروض */
+.filters{position:sticky;top:64px;z-index:20;background:var(--bg);padding-block:10px;margin-inline:-16px;padding-inline:16px}
+.filter-btn{min-height:42px;transition:all .2s var(--ease-out)}
+.filter-btn:hover{border-color:var(--primary-2);color:var(--ink)}
+#listings .wrap{container-type:inline-size}
+.listings-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:clamp(14px,2vw,22px)}
+.card{transition:transform .35s var(--ease-out),box-shadow .35s,border-color .35s;border-color:var(--line)}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-2);border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+.card-media img.cover{transition:transform .7s var(--ease-out)}
+.card:hover .card-media img.cover{transform:scale(1.06)}
+.card-badge{letter-spacing:.02em}
+.card-price{font-size:clamp(15px,1vw + 11px,18px)}
+.card .btn{width:100%}
+
+/* الحاسبة */
+.calc-panel{box-shadow:var(--shadow-1)}
+input[type="range"]{height:6px;border-radius:99px}
+input[type="number"],input[type="text"],input[type="tel"],select,textarea{min-height:48px}
+.calc-result{position:relative;overflow:hidden;background:linear-gradient(160deg,var(--primary),var(--primary-2))}
+.calc-result::after{content:"";position:absolute;width:220px;height:220px;inset-block-start:-90px;inset-inline-start:-90px;background:radial-gradient(circle,rgba(217,168,94,.35),transparent 70%)}
+.calc-result>*{position:relative}
+
+/* الأسئلة الشائعة */
+details.faq{transition:border-color .25s,box-shadow .25s}
+details.faq[open]{border-color:color-mix(in srgb,var(--gold) 55%,var(--line));box-shadow:var(--shadow-1)}
+details.faq summary{min-height:56px;transition:color .2s}
+details.faq summary:hover{color:var(--primary-2)}
+
+/* التواصل والنموذج */
+.contact-form{box-shadow:var(--shadow-1)}
+.contact-side{position:relative;overflow:hidden}
+.contact-side::after{content:"";position:absolute;width:260px;height:260px;inset-block-end:-120px;inset-inline-start:-120px;background:radial-gradient(circle,rgba(217,168,94,.28),transparent 70%)}
+.contact-side>*{position:relative}
+.contact-channel{transition:background .2s,transform .2s var(--ease-out)}
+.contact-channel:hover{background:rgba(255,255,255,.14);transform:translateX(-2px)}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;border-color:var(--gold);box-shadow:var(--ring)}
+
+/* الظهور عند التمرير (متصفحات تدعم scroll-driven animations فقط) */
+@supports (animation-timeline:view()){
+  @media (prefers-reduced-motion:no-preference){
+    .feature-card,.card,.testi-card,details.faq,.contact-form,.calc-panel{
+      animation:rise linear both;
+      animation-timeline:view();
+      animation-range:entry 0% entry 35%;
+    }
+    @keyframes rise{from{opacity:0;translate:0 28px}to{opacity:1;translate:0 0}}
+  }
+}
+
+/* الهاتف */
+@media (max-width:719px){
+  .hero-ctas .btn{flex:1 1 100%}
+  .calc-panel{padding:18px}
+  .section-head{margin-bottom:24px}
+  .fab-btn.wa{width:58px;height:58px}
+}
+@media (min-width:1080px){
+  .features-grid{gap:22px}
+  .stats-grid{padding-block:40px}
+}
+/* ===== END THEME v2 ===== */
