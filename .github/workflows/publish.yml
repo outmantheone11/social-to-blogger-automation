@@ -1,0 +1,63 @@
+name: publish-real-estate-page
+
+on:
+  push:
+    branches: [main]
+    paths: [app.js, fix_page.py, template/**, .github/workflows/publish.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-page
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PAGE_ID: "2288061485082308217"
+      BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: فحص app.js
+        run: node --check app.js
+
+      - name: توليد الصفحة
+        env:
+          APP_HASH: ${{ github.sha }}
+        run: python3 fix_page.py
+
+      - name: انتظار jsDelivr
+        run: |
+          for i in $(seq 1 12); do
+            if curl -sf "https://cdn.jsdelivr.net/gh/${{ github.repository }}@${{ github.sha }}/app.js" | grep -q "var TESTIMONIALS"; then
+              echo "✔ متاح"; exit 0
+            fi
+            echo "محاولة $i: لم يصل بعد"; sleep 10
+          done
+          echo "❌ jsDelivr لم يحدّث الملف"; exit 1
+
+      - name: رفع إلى Blogger
+        run: |
+          ACCESS=$(curl -sf https://oauth2.googleapis.com/token \
+            -d client_id="$GOOGLE_CLIENT_ID" -d client_secret="$GOOGLE_CLIENT_SECRET" \
+            -d refresh_token="$GOOGLE_REFRESH_TOKEN" -d grant_type=refresh_token | jq -re .access_token)
+          jq -n --rawfile c page_fixed.html '{content:$c}' | \
+            curl -sf -X PATCH "https://www.googleapis.com/blogger/v3/blogs/$BLOGGER_BLOG_ID/pages/$PAGE_ID" \
+              -H "Authorization: Bearer $ACCESS" -H "Content-Type: application/json" -d @- | jq -e '.updated'
+
+      - name: تحقق من الصفحة الحية
+        run: |
+          for i in $(seq 1 8); do
+            curl -sf "https://wassata-tijaria-akaria.blogspot.com/p/wassata-tijaria-akaria-real-estate.html" -o live.html || true
+            if grep -q "${{ github.sha }}" live.html && ! grep -q "claude:viewport" live.html; then
+              echo "✅ الصفحة الحية على ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "محاولة $i: الصفحة لم تتحدّث بعد"; sleep 15
+          done
+          echo "❌ الصفحة الحية لا تشير إلى ${{ github.sha }}"; exit 1

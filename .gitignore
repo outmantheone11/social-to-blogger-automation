@@ -3,3 +3,9 @@ state/pending_listings.json
 __pycache__/
 .env
 .env
+patch_full*.py
+page_restored.html
+app (*).js
+.vscode/
+page_fixed.html
+logs/
