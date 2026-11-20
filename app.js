@@ -235,6 +235,39 @@ grid.addEventListener("click", function(e){
   b.remove();
 });
 
+/* ===== تنسيق الصفحة داخل قالب بلوجر + تصحيح النصوص ===== */
+(function(){
+  if(!document.querySelector(".page")) return;
+  document.body.classList.add("landing-page");
+  var P = "body.landing-page ";
+  var hide = ["#navbar",".header-outer",".tabs-outer",".column-right-outer",".column-left-outer",".fauxcolumn-right-outer",".fauxcolumn-left-outer",".body-fauxcolumns",".sidebar",".widget.Header",".widget.BlogSearch",".widget.PageList",".widget.PopularPosts",".widget.Profile",".widget.BlogArchive",".widget.ReportAbuse",".widget.Attribution",".footer-outer",".post-header",".post-title",".post-footer",".post-share-buttons",".comments",".blog-pager",".date-header",".breadcrumbs"];
+  var full = [".content-outer",".content-inner",".main-inner",".main-inner .columns",".column-center-outer",".column-center-inner",".region-inner",".widget.Blog",".blog-posts",".post-outer",".post",".post-body",".post-body-container"];
+  var css = hide.map(function(x){ return P + x; }).join(",") + "{display:none!important}" +
+    full.map(function(x){ return P + x; }).join(",") + "{max-width:none!important;width:100%!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}" +
+    P + "{background:var(--bg)!important;overflow-x:hidden;margin:0}" +
+    P + ".page{font-family:var(--font-body);font-size:16px;line-height:1.6;color:var(--ink);text-align:right}" +
+    P + ".page a:not(.btn){color:inherit;text-decoration:none}" +
+    P + ".page .btn-primary,body.landing-page .page .btn-fb{color:#fff!important}" +
+    P + ".page .btn-gold{color:#241a08!important}" +
+    P + ".page .btn-ghost:not([style]){color:var(--ink)}" +
+    ".card-media:not(.has-media){aspect-ratio:16/5;min-height:0}" +
+    ".card-media:not(.has-media)>svg{width:34px;height:34px}";
+  var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
+
+  /* تصحيح النصوص الإنجليزية الشاذة (بقايا الترجمة التلقائية) */
+  var exact = {"The strange questions":"الأسئلة الشائعة","details":"عرض عقاري","Current offers":"العروض الحالية","The full name":"الاسم الكامل","or":"أو","More than 5M":"أكثر من 5 ملايين","500,000":"أقل من 500,000"};
+  var w = document.createTreeWalker(document.querySelector(".page"), NodeFilter.SHOW_TEXT), n, list = [];
+  while((n = w.nextNode())) list.push(n);
+  list.forEach(function(t){
+    var v = t.nodeValue, k = v.trim(), pr = t.parentNode;
+    if(exact[k]){ t.nodeValue = v.replace(k, exact[k]); return; }
+    if(v.indexOf("Remove the water from the water") < 0) return;
+    if(pr.closest(".feature-card")) t.nodeValue = v.replace("Remove the water from the water", "نوفر فرصاً استثمارية مختارة");
+    else if(pr.closest(".calc-note")) t.nodeValue = "القسط المعروض تقديري ويختلف حسب شروط البنك ومدة التمويل.";
+    else if(pr.closest(".contact-side")) t.nodeValue = "راسلنا عبر واتساب أو اتصل بنا مباشرة وسنرد عليك في أقرب وقت.";
+  });
+})();
+
 function applyFilter(){
   var b = document.querySelector('.filter-btn[aria-pressed="true"]');
   var f = b ? b.getAttribute("data-filter") : "all";
@@ -244,7 +277,7 @@ function applyFilter(){
 }
 
 function render(items){
-  items = items.filter(function(x){ return !x.off; });
+  items = items.filter(function(x){ return !x.off; }).sort(function(a, b){ return (b.medias.length ? 1 : 0) - (a.medias.length ? 1 : 0); });
   grid.innerHTML = items.length ? items.map(cardHTML).join("") : '<p class="empty-note">لا توجد عروض حالياً، تواصل معنا عبر واتساب.</p>';
   applyFilter();
 }
