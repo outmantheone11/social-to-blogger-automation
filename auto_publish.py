@@ -12,6 +12,10 @@ in state/published_ids.json so nothing is posted twice.
 All credentials are read from environment variables (set as GitHub Secrets
 in the Actions workflow). Nothing is hard-coded.
 
+NOTE: GitHub Actions passes secrets/variables that were never defined as
+EMPTY strings (not as "unset"). Every optional setting below therefore treats
+an empty value exactly like a missing one and falls back to its default.
+
 Required environment variables:
   FB_PAGE_ID            Facebook Page ID
   FB_PAGE_ACCESS_TOKEN  Long-lived Page Access Token (see README)
@@ -26,6 +30,9 @@ Required environment variables:
 Optional:
   MAX_ITEMS_PER_SOURCE  default 5
   STATE_FILE            default "state/published_ids.json"
+  GRAPH_API_VERSION     default "v25.0"
+  SKIP_REMEMBER         "true" to remember (and never retry) items rejected
+                        by the publishability check
 
   # Feature: auto-insert new Facebook listings into the "عروض مختارة"
   # section of the landing page (see listings_update.py). Requires
@@ -37,7 +44,7 @@ Optional:
   # Feature: Claude-powered rewrite into a polished blog-post style.
   # Leave ANTHROPIC_API_KEY unset to skip this step (original text is used as-is).
   ANTHROPIC_API_KEY
-  ANTHROPIC_MODEL           default "claude-sonnet-5"
+  ANTHROPIC_MODEL           default "claude-sonnet-5-5"
 
   # Feature: WhatsApp notification to yourself whenever a new article is published.
   # Leave unset to skip this feature entirely.
@@ -62,35 +69,118 @@ import datetime
 import pathlib
 
 import requests
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request as GoogleAuthRequest
-from googleapiclient.discovery import build
 
-import listings_update
+# Arabic output must never crash the script on a runner with a non-UTF-8 locale.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
-MAX_ITEMS_PER_SOURCE = int(os.environ.get("MAX_ITEMS_PER_SOURCE", "5"))
-STATE_FILE = pathlib.Path(os.environ.get("STATE_FILE", "state/published_ids.json"))
 
-GRAPH_API_VERSION = "v21.0"
+# --------------------------------------------------------------------------
+# Environment helpers
+# --------------------------------------------------------------------------
+def _env(name, default=""):
+    """Like os.environ.get, but an empty/blank value counts as missing.
+    (GitHub Actions turns an undefined `${{ secrets.X }}` / `${{ vars.X }}`
+    into "", which os.environ.get would happily return instead of default.)"""
+    value = os.environ.get(name)
+    if value is not None and value.strip():
+        return value.strip()
+    return default
+
+
+def _env_int(name, default):
+    raw = _env(name, str(default))
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"[warn] {name}={raw!r} ليست رقماً صحيحاً، سيُستخدم {default}")
+        return default
+
+
+MAX_ITEMS_PER_SOURCE = _env_int("MAX_ITEMS_PER_SOURCE", 5)
+STATE_FILE = pathlib.Path(_env("STATE_FILE", "state/published_ids.json"))
+GRAPH_API_VERSION = _env("GRAPH_API_VERSION", "v25.0")
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
+MAX_STATE_IDS_PER_SOURCE = 500  # dedup only needs the recent window; stop unbounded growth
+
+SOURCES = ("facebook", "instagram", "tiktok")
+
+_TOKEN_RE = re.compile(r"(access_token|token|secret)=[^&\s'\"]+", re.I)
+
+
+def _safe_exc(exc):
+    """Exception text with any token query-parameters redacted."""
+    redacted = _TOKEN_RE.sub(r"\1=***", str(exc))
+    return f"{type(exc).__name__}: {redacted}"
+
+
+def _anthropic_model():
+    return _env("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
+
+
+def _request_json(method, url, source, **kwargs):
+    """Perform an HTTP request and return the decoded JSON body, or None on
+    any network/HTTP/JSON problem. Never raises, so one broken source can't
+    abort the other sources."""
+    try:
+        resp = requests.request(method, url, timeout=30, **kwargs)
+    except requests.RequestException as exc:
+        print(f"[{source}] network error — {_safe_exc(exc)}")
+        return None
+    if resp.status_code != 200:
+        print(f"[{source}] API error {resp.status_code}: {resp.text[:300]}")
+        return None
+    try:
+        data = resp.json()
+    except ValueError:
+        print(f"[{source}] رد غير صالح (ليس JSON): {resp.text[:200]}")
+        return None
+    return data if isinstance(data, dict) else None
 
 
 # --------------------------------------------------------------------------
 # State (de-duplication)
 # --------------------------------------------------------------------------
 def load_state():
+    """Load the dedup state. A corrupt file aborts the run: starting "fresh"
+    would re-publish the latest posts of every source as duplicates."""
+    state = {}
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            print(f"[warn] state file {STATE_FILE} is corrupt, starting fresh")
-    return {"facebook": [], "instagram": [], "tiktok": []}
+            state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(
+                f"[error] ملف الحالة {STATE_FILE} تالف أو غير مقروء ({_safe_exc(exc)}). "
+                "تم الإيقاف لتفادي النشر المكرر — أصلح الملف أو احذفه ثم أعد التشغيل."
+            )
+            sys.exit(1)
+        if not isinstance(state, dict):
+            print(f"[error] ملف الحالة {STATE_FILE} له بنية غير متوقعة. تم الإيقاف.")
+            sys.exit(1)
+    for source in SOURCES:
+        if not isinstance(state.get(source), list):
+            state[source] = []
+    return state
 
 
 def save_state(state):
+    trimmed = {
+        key: (value[-MAX_STATE_IDS_PER_SOURCE:] if isinstance(value, list) else value)
+        for key, value in state.items()
+    }
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(trimmed, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+
+
+def _remember(state, item):
+    ids = state.setdefault(item["source"], [])
+    if item["id"] not in ids:
+        ids.append(item["id"])
 
 
 # --------------------------------------------------------------------------
@@ -98,8 +188,8 @@ def save_state(state):
 # image_url, published_at (ISO string)
 # --------------------------------------------------------------------------
 def fetch_facebook_posts():
-    page_id = os.environ.get("FB_PAGE_ID")
-    token = os.environ.get("FB_PAGE_ACCESS_TOKEN")
+    page_id = _env("FB_PAGE_ID")
+    token = _env("FB_PAGE_ACCESS_TOKEN")
     if not page_id or not token:
         print("[facebook] skipped (no credentials)")
         return []
@@ -110,21 +200,21 @@ def fetch_facebook_posts():
         "limit": MAX_ITEMS_PER_SOURCE,
         "access_token": token,
     }
-    resp = requests.get(url, params=params, timeout=30)
-    if resp.status_code != 200:
-        print(f"[facebook] API error {resp.status_code}: {resp.text[:300]}")
+    data = _request_json("GET", url, "facebook", params=params)
+    if data is None:
         return []
 
     items = []
-    for post in resp.json().get("data", []):
-        if not post.get("message"):
+    for post in data.get("data", []):
+        message = post.get("message")
+        if not post.get("id") or not message:
             continue  # skip posts with no text (e.g. pure link shares with no caption)
         items.append(
             {
                 "source": "facebook",
                 "id": post["id"],
-                "title": (post["message"].strip().split("\n")[0])[:80],
-                "body_html": _text_to_html(post["message"]),
+                "title": (message.strip().split("\n")[0])[:80],
+                "body_html": _text_to_html(message),
                 "permalink": post.get("permalink_url", ""),
                 "image_url": post.get("full_picture"),
                 "published_at": post.get("created_time"),
@@ -134,34 +224,41 @@ def fetch_facebook_posts():
 
 
 def fetch_instagram_posts():
-    ig_user_id = os.environ.get("IG_USER_ID")
-    token = os.environ.get("IG_ACCESS_TOKEN")
+    ig_user_id = _env("IG_USER_ID")
+    token = _env("IG_ACCESS_TOKEN")
     if not ig_user_id or not token:
         print("[instagram] skipped (no credentials)")
         return []
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media"
     params = {
-        "fields": "id,caption,permalink,media_url,media_type,timestamp",
+        "fields": "id,caption,permalink,media_url,thumbnail_url,media_type,timestamp",
         "limit": MAX_ITEMS_PER_SOURCE,
         "access_token": token,
     }
-    resp = requests.get(url, params=params, timeout=30)
-    if resp.status_code != 200:
-        print(f"[instagram] API error {resp.status_code}: {resp.text[:300]}")
+    data = _request_json("GET", url, "instagram", params=params)
+    if data is None:
         return []
 
     items = []
-    for media in resp.json().get("data", []):
-        caption = media.get("caption", "")
+    for media in data.get("data", []):
+        if not media.get("id"):
+            continue
+        caption = media.get("caption") or ""
+        # For VIDEO/REELS, media_url is the .mp4 — not usable as an <img>.
+        # The still frame lives in thumbnail_url.
+        if media.get("media_type") == "VIDEO":
+            image_url = media.get("thumbnail_url")
+        else:
+            image_url = media.get("media_url")
         items.append(
             {
                 "source": "instagram",
                 "id": media["id"],
-                "title": (caption.strip().split("\n")[0] if caption else "منشور إنستغرام جديد")[:80],
-                "body_html": _text_to_html(caption) if caption else "",
+                "title": (caption.strip().split("\n")[0] if caption.strip() else "منشور إنستغرام جديد")[:80],
+                "body_html": _text_to_html(caption) if caption.strip() else "",
                 "permalink": media.get("permalink", ""),
-                "image_url": media.get("media_url"),
+                "image_url": image_url,
                 "published_at": media.get("timestamp"),
             }
         )
@@ -169,8 +266,8 @@ def fetch_instagram_posts():
 
 
 def fetch_tiktok_videos():
-    token = os.environ.get("TIKTOK_ACCESS_TOKEN")
-    open_id = os.environ.get("TIKTOK_OPEN_ID")
+    token = _env("TIKTOK_ACCESS_TOKEN")
+    open_id = _env("TIKTOK_OPEN_ID")
     if not token or not open_id:
         print("[tiktok] skipped (no credentials)")
         return []
@@ -181,29 +278,31 @@ def fetch_tiktok_videos():
     # from third-party accounts.
     url = "https://open.tiktokapis.com/v2/video/list/"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    body = {
-        "max_count": MAX_ITEMS_PER_SOURCE,
-    }
+    body = {"max_count": MAX_ITEMS_PER_SOURCE}
     fields = "id,title,video_description,share_url,cover_image_url,create_time"
-    resp = requests.post(f"{url}?fields={fields}", headers=headers, json=body, timeout=30)
-    if resp.status_code != 200:
-        print(f"[tiktok] API error {resp.status_code}: {resp.text[:300]}")
+    payload = _request_json("POST", f"{url}?fields={fields}", "tiktok", headers=headers, json=body)
+    if payload is None:
         return []
 
-    data = resp.json().get("data", {})
+    data = payload.get("data") or {}
     items = []
-    for video in data.get("videos", []):
+    for video in data.get("videos") or []:
+        if not video.get("id"):
+            continue  # str(None) would otherwise become the bogus id "None"
         desc = video.get("video_description") or video.get("title") or "فيديو تيكتوك جديد"
         create_ts = video.get("create_time")
-        published_at = (
-            datetime.datetime.utcfromtimestamp(create_ts).isoformat() + "Z"
-            if create_ts
-            else None
-        )
+        published_at = None
+        if create_ts:
+            try:
+                published_at = datetime.datetime.fromtimestamp(
+                    int(create_ts), tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except (TypeError, ValueError, OverflowError, OSError):
+                published_at = None
         items.append(
             {
                 "source": "tiktok",
-                "id": str(video.get("id")),
+                "id": str(video["id"]),
                 "title": desc.strip().split("\n")[0][:80],
                 "body_html": _text_to_html(desc),
                 "permalink": video.get("share_url", ""),
@@ -220,13 +319,72 @@ def _text_to_html(text):
     return "\n".join(paragraphs)
 
 
+def _parse_timestamp(value):
+    """Parse the different ISO formats the three APIs return ("...+0000",
+    "...Z", ...) into an aware datetime so the oldest-first ordering is
+    correct. Unparseable/missing values sort first."""
+    fallback = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+    if not value:
+        return fallback
+    text = str(value).strip().replace("Z", "+00:00")
+    text = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", text)
+    try:
+        parsed = datetime.datetime.fromisoformat(text)
+    except ValueError:
+        return fallback
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def _sort_key(item):
+    return _parse_timestamp(item.get("published_at"))
+
+
+# --------------------------------------------------------------------------
+# Claude helpers
+# --------------------------------------------------------------------------
+def _response_text(response):
+    return "".join(
+        block.text for block in response.content if getattr(block, "type", "") == "text"
+    ).strip()
+
+
+def _strip_markdown(line, is_title=False):
+    line = re.sub(r"^\s*#+\s*", "", line)          # "## heading"
+    line = re.sub(r"^\s*>\s*", "", line)           # "> quote"
+    if is_title:
+        line = re.sub(r"^\s*[-*•]\s+", "", line)   # bullet before a title
+    line = re.sub(r"(\*\*|__|`)", "", line)        # bold / code markers
+    return line.strip()
+
+
+def _parse_json_object(text):
+    """Parse a JSON object from a model reply, tolerating ```json fences or
+    short surrounding text. Raises ValueError/JSONDecodeError otherwise."""
+    text = text.strip()
+    fenced = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.S | re.I)
+    if fenced:
+        text = fenced.group(1)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start == -1 or end <= start:
+            raise
+        data = json.loads(text[start : end + 1])
+    if not isinstance(data, dict):
+        raise ValueError("الرد ليس كائن JSON")
+    return data
+
+
 # --------------------------------------------------------------------------
 # Feature: rewrite the raw social caption into a polished blog-post style
 # using the Anthropic API. Fully optional — if ANTHROPIC_API_KEY is not set,
 # this is skipped and the original text passes through unchanged.
 # --------------------------------------------------------------------------
 def rewrite_item_with_claude(item):
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = _env("ANTHROPIC_API_KEY")
     raw_text = html.unescape(
         item.get("body_html", "").replace("<p>", "").replace("</p>", "\n")
     ).strip()
@@ -237,7 +395,6 @@ def rewrite_item_with_claude(item):
         import anthropic  # imported lazily so the package is only required when used
 
         client = anthropic.Anthropic(api_key=api_key)
-        model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
         prompt = (
             "أعد صياغة النص التالي، المأخوذ من منشور على وسائل التواصل الاجتماعي، "
             "ليصبح مقالاً قصيراً بأسلوب مدونة احترافي وسلس بالعربية الفصحى، مع عنوان "
@@ -246,19 +403,21 @@ def rewrite_item_with_claude(item):
             f"النص الأصلي:\n{raw_text}"
         )
         response = client.messages.create(
-            model=model,
+            model=_anthropic_model(),
             max_tokens=800,
             messages=[{"role": "user", "content": prompt}],
         )
-        rewritten = "".join(
-            block.text for block in response.content if getattr(block, "type", "") == "text"
-        ).strip()
+        rewritten = _response_text(response)
         if not rewritten:
             return item
 
-        lines = [line.strip() for line in rewritten.split("\n") if line.strip()]
-        new_title = lines[0][:80] if lines else item["title"]
-        new_body = "\n".join(f"<p>{html.escape(line)}</p>" for line in lines[1:]) or item.get(
+        lines = [line for line in rewritten.split("\n") if line.strip()]
+        if not lines:
+            return item
+        new_title = _strip_markdown(lines[0], is_title=True)[:80] or item["title"]
+        body_lines = [_strip_markdown(line) for line in lines[1:]]
+        body_lines = [line for line in body_lines if line]
+        new_body = "\n".join(f"<p>{html.escape(line)}</p>" for line in body_lines) or item.get(
             "body_html", ""
         )
         item = dict(item)  # don't mutate the caller's dict in place
@@ -266,7 +425,7 @@ def rewrite_item_with_claude(item):
         item["body_html"] = new_body
         item["rewritten"] = True
     except Exception as exc:  # noqa: BLE001
-        print(f"[claude-rewrite] فشل إعادة الصياغة، سيُنشر النص الأصلي — {exc}")
+        print(f"[claude-rewrite] فشل إعادة الصياغة، سيُنشر النص الأصلي — {_safe_exc(exc)}")
     return item
 
 
@@ -275,9 +434,9 @@ def rewrite_item_with_claude(item):
 # Fully optional — skipped silently if the WhatsApp env vars are not set.
 # --------------------------------------------------------------------------
 def send_whatsapp_notification(title, url):
-    phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID")
-    token = os.environ.get("WHATSAPP_ACCESS_TOKEN")
-    to_number = os.environ.get("WHATSAPP_TO_NUMBER")
+    phone_number_id = _env("WHATSAPP_PHONE_NUMBER_ID")
+    token = _env("WHATSAPP_ACCESS_TOKEN")
+    to_number = _env("WHATSAPP_TO_NUMBER")
     if not (phone_number_id and token and to_number):
         return  # feature not configured, skip silently
 
@@ -297,7 +456,7 @@ def send_whatsapp_notification(title, url):
         else:
             print("[whatsapp] تم إرسال إشعار بالمقال الجديد.")
     except Exception as exc:  # noqa: BLE001
-        print(f"[whatsapp] فشل إرسال الإشعار — {exc}")
+        print(f"[whatsapp] فشل إرسال الإشعار — {_safe_exc(exc)}")
 
 
 # --------------------------------------------------------------------------
@@ -336,8 +495,8 @@ def classify_listing_with_claude(raw_text):
     """Returns a dict matching listings_update's expected schema, or None
     if this post is not a property listing / the feature isn't configured /
     classification failed for any reason. Never raises."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    page_id = os.environ.get("BLOGGER_PAGE_ID")
+    api_key = _env("ANTHROPIC_API_KEY")
+    page_id = _env("BLOGGER_PAGE_ID")
     if not api_key or not page_id or not raw_text.strip():
         return None
 
@@ -345,30 +504,26 @@ def classify_listing_with_claude(raw_text):
         import anthropic
 
         client = anthropic.Anthropic(api_key=api_key)
-        model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
         response = client.messages.create(
-            model=model,
+            model=_anthropic_model(),
             max_tokens=500,
             system=LISTING_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": raw_text}],
         )
-        reply_text = "".join(
-            block.text for block in response.content if getattr(block, "type", "") == "text"
-        ).strip()
-        data = json.loads(reply_text)
+        data = _parse_json_object(_response_text(response))
         if not data.get("is_listing"):
             return None
         return data
     except Exception as exc:  # noqa: BLE001
-        print(f"[listing-classify] فشل تحليل المنشور كعقار، سيُتجاهل — {exc}")
+        print(f"[listing-classify] فشل تحليل المنشور كعقار، سيُتجاهل — {_safe_exc(exc)}")
         return None
 
 
 def maybe_update_listings_page(service, raw_text, item):
     """If configured and the post is a property listing, insert it into the
     LISTINGS array on the landing page. Never raises — logs and continues."""
-    blog_id = os.environ.get("BLOGGER_BLOG_ID")
-    page_id = os.environ.get("BLOGGER_PAGE_ID")
+    blog_id = _env("BLOGGER_BLOG_ID")
+    page_id = _env("BLOGGER_PAGE_ID")
     if not blog_id or not page_id:
         return  # feature not configured, skip silently
 
@@ -380,29 +535,48 @@ def maybe_update_listings_page(service, raw_text, item):
         listing["image_url"] = item["image_url"]
 
     try:
+        import listings_update  # lazy: this optional feature must not break the main flow
+
         inserted = listings_update.insert_listing(service, blog_id, page_id, listing)
         if inserted:
-            print(f"[listings] أُضيف عرض جديد إلى صفحة العقارات: {listing['title']}")
+            print(f"[listings] أُضيف عرض جديد إلى صفحة العقارات: {listing.get('title', '')}")
         else:
             print("[listings] العرض موجود مسبقاً في الصفحة، تم تجاهله.")
     except Exception as exc:  # noqa: BLE001
-        print(f"[listings] فشل تحديث صفحة العقارات — {exc}")
+        print(f"[listings] فشل تحديث صفحة العقارات — {_safe_exc(exc)}")
 
 
 # --------------------------------------------------------------------------
 # Blogger publishing
 # --------------------------------------------------------------------------
 def get_blogger_service():
+    missing = [
+        name
+        for name in ("BLOGGER_REFRESH_TOKEN", "BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET")
+        if not _env(name)
+    ]
+    if missing:
+        print(f"[error] متغيرات Blogger المطلوبة مفقودة: {', '.join(missing)}. Exiting.")
+        sys.exit(1)
+
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+    from googleapiclient.discovery import build
+
     creds = Credentials(
         token=None,
-        refresh_token=os.environ["BLOGGER_REFRESH_TOKEN"],
-        client_id=os.environ["BLOGGER_CLIENT_ID"],
-        client_secret=os.environ["BLOGGER_CLIENT_SECRET"],
+        refresh_token=_env("BLOGGER_REFRESH_TOKEN"),
+        client_id=_env("BLOGGER_CLIENT_ID"),
+        client_secret=_env("BLOGGER_CLIENT_SECRET"),
         token_uri="https://oauth2.googleapis.com/token",
         scopes=["https://www.googleapis.com/auth/blogger"],
     )
-    creds.refresh(GoogleAuthRequest())
-    return build("blogger", "v3", credentials=creds)
+    try:
+        creds.refresh(GoogleAuthRequest())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[error] فشل تجديد رمز Blogger (هل انتهت صلاحية refresh token؟) — {_safe_exc(exc)}")
+        sys.exit(1)
+    return build("blogger", "v3", credentials=creds, cache_discovery=False)
 
 
 SOURCE_LABELS = {
@@ -436,6 +610,7 @@ def build_post_html(item):
 
 
 GENERIC_TITLE_RE = re.compile(r"^\s*منشور\s+(من|جديد\s+من)\s*\S*\s*$", re.I)
+
 
 def is_publishable(item):
     """يرفض العناصر الفارغة أو ذات العنوان العام، لأنها تعني فشل الجلب."""
@@ -478,17 +653,19 @@ def main():
         print("لا توجد منشورات جديدة للنشر. (No new posts to publish.)")
         return
 
-    blog_id = os.environ.get("BLOGGER_BLOG_ID")
+    blog_id = _env("BLOGGER_BLOG_ID")
     if not blog_id:
         print("[error] BLOGGER_BLOG_ID missing, cannot publish. Exiting.")
         sys.exit(1)
 
     service = get_blogger_service()
 
-    generate_video = os.environ.get("GENERATE_PROMO_VIDEO", "false").lower() == "true"
+    generate_video = _env("GENERATE_PROMO_VIDEO", "false").lower() == "true"
+    skip_remember = _env("SKIP_REMEMBER", "false").lower() == "true"
 
     published_count = 0
-    for item in sorted(new_items, key=lambda i: i.get("published_at") or ""):
+    failed_count = 0
+    for item in sorted(new_items, key=_sort_key):
         try:
             raw_text = html.unescape(
                 item.get("body_html", "").replace("<p>", "").replace("</p>", "\n")
@@ -497,8 +674,9 @@ def main():
             ok, why = is_publishable(item)
             if not ok:
                 print(f"[skip] {item['source']}:{item['id']} — {why}")
-                if os.environ.get("SKIP_REMEMBER", "false").lower() == "true":
-                    state.setdefault(item["source"], []).append(item["id"])
+                if skip_remember:
+                    _remember(state, item)
+                    save_state(state)
                 continue
 
             item = rewrite_item_with_claude(item)
@@ -508,28 +686,36 @@ def main():
                 continue
 
             url = publish_item(service, blog_id, item)
-            print(f"[ok] نُشر: {item['title']}  ->  {url}")
-            state.setdefault(item["source"], []).append(item["id"])
-            published_count += 1
-
-            send_whatsapp_notification(item["title"], url)
-
-            if item["source"] == "facebook":
-                maybe_update_listings_page(service, raw_text, item)
-
-            if generate_video and item.get("image_url"):
-                try:
-                    import make_promo_video
-
-                    make_promo_video.create_and_publish_promo_video(item, blog_url=url)
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[promo-video] فشل إنشاء/نشر الفيديو الترويجي — {exc}")
-
         except Exception as exc:  # noqa: BLE001
-            print(f"[error] فشل نشر {item['source']}:{item['id']} — {exc}")
+            failed_count += 1
+            print(f"[error] فشل نشر {item['source']}:{item['id']} — {_safe_exc(exc)}")
+            continue
 
-    save_state(state)
+        print(f"[ok] نُشر: {item['title']}  ->  {url}")
+        published_count += 1
+        # Persist right away: the post is already live, so a crash further down
+        # (or a failed workflow step) must not cause it to be published twice.
+        _remember(state, item)
+        save_state(state)
+
+        # Extras after a successful publish never affect the result above.
+        send_whatsapp_notification(item["title"], url)
+
+        if item["source"] == "facebook":
+            maybe_update_listings_page(service, raw_text, item)
+
+        if generate_video and item.get("image_url"):
+            try:
+                import make_promo_video
+
+                make_promo_video.create_and_publish_promo_video(item, blog_url=url)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[promo-video] فشل إنشاء/نشر الفيديو الترويجي — {_safe_exc(exc)}")
+
     print(f"تم نشر {published_count} منشور(ات) جديد(ة).")
+    if failed_count and not published_count:
+        print(f"[error] فشل نشر جميع المنشورات المحاولة ({failed_count}).")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
