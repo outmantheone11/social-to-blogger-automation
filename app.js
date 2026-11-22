@@ -13,16 +13,16 @@ var CONFIG = {
 };
 
 var LISTINGS = [
- {category:"land",badge:"للبيع · أرض سكنية/تجارية",media:"land",title:"أرض للبيع بمدخل بوسكورة — فرصة ذهبية لعشاق الطبيعة",location:"بوسكورة، النواصر",area:"+10,000 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض بوسكورة +10000 م²"},
- {category:"land",badge:"للبيع · أرض استثمارية",media:"land",title:"فرصة استثمارية استراتيجية بدار بوعزة على الطريق الرئيسية",location:"دار بوعزة، أولاد عزوز",area:"4.8 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل الأرض الاستثمارية دار بوعزة"},
- {category:"land",badge:"للبيع · أرض محفظة",media:"land",title:"أرض محفظة مرخصة صالحة للبناء بدوار أمالوا",location:"جماعة الدراركة، أكادير",area:"2,086 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة الدراركة"},
- {category:"land",badge:"للبيع · أرض سياحية",media:"coast",title:"قطعة أرضية استثنائية بواجهة بحرية مباشرة بآكلو",location:"آكلو، إقليم تيزنيت",area:"17 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة تزنيت آكلو"},
- {category:"residential",badge:"للبيع · شقة فاخرة · مرآب مشمول",media:"res",title:"شقة فاخرة للبيع بحي ابن تاشفين، قرب مرجان",location:"الدار البيضاء",area:"117 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل الشقة الفاخرة ابن تاشفين"},
- {category:"residential",badge:"للبيع · عقار محفظ",media:"res",title:"عقار محفظ بحي مستقبل، طريق رأس الماء بنسودة",location:"فاس",area:"92 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل عقار بنسودة فاس"},
- {category:"residential",badge:"للبيع · منزل بحي راقٍ",media:"res",title:"منزل محفظ بحي راقٍ وهادئ ببني ملال",location:"بني ملال",area:"220 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل منزل محفظ بني ملال"},
- {category:"residential",badge:"للبيع · شقة",media:"res",title:"شقة للبيع في مراكش - حي جليز",location:"مراكش - حي جليز",area:"95 م²",price:"1,250,000 درهم",wa:"السلام عليكم، أود الحصول على تفاصيل الشقة المعروضة للبيع في حي جليز بمراكش."},
- {category:"residential",badge:"للبيع · فيلا",media:"res",title:"فيلا فاخرة للبيع في مراكش - النخيل",location:"مراكش - النخيل",area:"400 م²",price:"4,500,000 درهم",wa:"مرحباً، أرغب في الحصول على تفاصيل الفيلا المعروضة للبيع في مراكش - النخيل."},
- {category:"residential",badge:"للبيع · هنغار جديد",media:"res",title:"هنغار جديد مع 8 شقق للبيع في مراكش - طريق اسفي",location:"مراكش - طريق آسفي",area:"2200 متر مربع",price:"1.4 مليار سنتيم",video_url:"https://www.youtube.com/shorts/FSSMCZnt64w",wa:"مرحباً، أرغب في الحصول على تفاصيل الهنغار الجديد مع 8 شقق بطريق آسفي - مراكش"}
+ {category:"land",badge:"للبيع · أرض سكنية/تجارية",media:"land",title:"أرض للبيع بمدخل بوسكورة — فرصة ذهبية لعشاق الطبيعة",location:"بوسكورة، النواصر",area:"+10,000 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض بوسكورة +10000 م²",lat:33.36,lng:-7.58},
+ {category:"land",badge:"للبيع · أرض استثمارية",media:"land",title:"فرصة استثمارية استراتيجية بدار بوعزة على الطريق الرئيسية",location:"دار بوعزة، أولاد عزوز",area:"4.8 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل الأرض الاستثمارية دار بوعزة",lat:33.513,lng:-7.678},
+ {category:"land",badge:"للبيع · أرض محفظة",media:"land",title:"أرض محفظة مرخصة صالحة للبناء بدوار أمالوا",location:"جماعة الدراركة، أكادير",area:"2,086 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة الدراركة",lat:30.33,lng:-9.6},
+ {category:"land",badge:"للبيع · أرض سياحية",media:"coast",title:"قطعة أرضية استثنائية بواجهة بحرية مباشرة بآكلو",location:"آكلو، إقليم تيزنيت",area:"17 هكتار",price:"ثمن قابل للتفاوض",wa:"تفاصيل أرض محفظة تزنيت آكلو",lat:29.6,lng:-9.73},
+ {category:"residential",badge:"للبيع · شقة فاخرة · مرآب مشمول",media:"res",title:"شقة فاخرة للبيع بحي ابن تاشفين، قرب مرجان",location:"الدار البيضاء",area:"117 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل الشقة الفاخرة ابن تاشفين",lat:33.56,lng:-7.6},
+ {category:"residential",badge:"للبيع · عقار محفظ",media:"res",title:"عقار محفظ بحي مستقبل، طريق رأس الماء بنسودة",location:"فاس",area:"92 م² · 3 غرف + صالونين",price:"ثمن قابل للتفاوض",wa:"تفاصيل عقار بنسودة فاس",lat:34.0331,lng:-4.9998},
+ {category:"residential",badge:"للبيع · منزل بحي راقٍ",media:"res",title:"منزل محفظ بحي راقٍ وهادئ ببني ملال",location:"بني ملال",area:"220 م²",price:"ثمن قابل للتفاوض",wa:"تفاصيل منزل محفظ بني ملال",lat:32.3373,lng:-6.3498},
+ {category:"residential",badge:"للبيع · شقة",media:"res",title:"شقة للبيع في مراكش - حي جليز",location:"مراكش - حي جليز",area:"95 م²",price:"1,250,000 درهم",wa:"السلام عليكم، أود الحصول على تفاصيل الشقة المعروضة للبيع في حي جليز بمراكش.",lat:31.6335,lng:-7.995},
+ {category:"residential",badge:"للبيع · فيلا",media:"res",title:"فيلا فاخرة للبيع في مراكش - النخيل",location:"مراكش - النخيل",area:"400 م²",price:"4,500,000 درهم",wa:"مرحباً، أرغب في الحصول على تفاصيل الفيلا المعروضة للبيع في مراكش - النخيل.",lat:31.648,lng:-7.98},
+ {category:"residential",badge:"للبيع · هنغار جديد",media:"res",title:"هنغار جديد مع 8 شقق للبيع في مراكش - طريق اسفي",location:"مراكش - طريق آسفي",area:"2200 متر مربع",price:"1.4 مليار سنتيم",video_url:"https://www.youtube.com/shorts/FSSMCZnt64w",wa:"مرحباً، أرغب في الحصول على تفاصيل الهنغار الجديد مع 8 شقق بطريق آسفي - مراكش",lat:31.58,lng:-8.06}
 ];
 
 var TESTIMONIALS = [];
@@ -534,6 +534,37 @@ if(_gridEl) _gridEl.addEventListener("click", function(e){
   }
   dmOpen(L);
 }, true);
+
+
+/* خريطة العروض (Leaflet + OpenStreetMap) */
+(function(){
+  function loadLeaflet(cb){
+    if(window.L) return cb();
+    var css=document.createElement("link"); css.rel="stylesheet";
+    css.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    var js=document.createElement("script"); js.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.onload=cb; document.head.appendChild(js);
+  }
+  function init(){
+    var sec=document.getElementById("listings");
+    if(!sec || !window.L || !window.LISTINGS) return;
+    var host=document.createElement("div");
+    host.id="listingsMap";
+    host.style.cssText="height:380px;border-radius:18px;margin:0 0 22px;border:1px solid var(--line);position:relative;z-index:1";
+    var wrap=sec.querySelector(".wrap")||sec;
+    var g=document.getElementById("listingsGrid");
+    wrap.insertBefore(host, g || null);
+    var map=L.map(host).setView([31.8,-7.1],6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
+    LISTINGS.forEach(function(l){
+      if(typeof l.lat!=="number" || typeof l.lng!=="number") return;
+      var m=L.marker([l.lat,l.lng]).addTo(map);
+      m.bindPopup("<b>"+esc(l.title)+"</b><br>"+esc(l.location||""));
+      m.on("dblclick",function(){ if(typeof dmOpen==="function") dmOpen(l); });
+    });
+  }
+  loadLeaflet(function(){ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init(); });
+})();
 
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
