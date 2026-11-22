@@ -9,3 +9,4 @@ app (*).js
 .vscode/
 page_fixed.html
 logs/
+package-lock.json
