@@ -346,3 +346,20 @@ GitHub Actions يعمل فقط عند استدعائه (جدولة أو تشغي
   مدفوع حسب الاستخدام من حساب Anthropic الخاص بك — راجع [أسعار Anthropic](https://www.anthropic.com/pricing).
 - مسودة العرض **لا تحتوي أي سعر أو التزام مُخترع** بتصميم مقصود — ستجد فيها فراغات مثل
   `[السعر]` لتملأها أنت بنفسك قبل إرسال أي شيء للعميل فعلياً.
+
+---
+
+# الربط مع وكيل واتساب: نشر العروض الموافَق عليها تلقائياً
+
+عند موافقة المدير على عرض عبر واتساب (`approve ID`)، يرسل وكيل واتساب العرض إلى هذا المستودع
+عبر حدث `repository_dispatch` باسم `new-offer`، فيعمل الـ workflow `new-offer.yml`:
+
+1. يصمم الأفيش داخل GitHub Actions (Playwright) ويحفظه في `media/offers/`.
+2. ينشره في صفحة العروض في Blogger، وعلى صفحة فيسبوك، وعلى إنستغرام.
+3. يسجّل العرض في `state/published_offers.json` لمنع النشر المكرر.
+
+**الأسرار الإضافية المطلوبة:** نفس أسرار Blogger وفيسبوك وإنستغرام الموجودة أصلاً.
+**على جهاز الوكيل:** `GITHUB_DISPATCH_TOKEN` (رمز GitHub بصلاحية Actions و Contents على هذا المستودع)،
+و`AUTOMATION_REPO=outmantheone11/social-to-blogger-automation`.
+
+تحويل التصنيفات: `land` و`farm` تصبح `land`، و`property` و`commercial` تصبح `residential`.
